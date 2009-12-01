@@ -15,7 +15,7 @@ class Board(object):
     def turn(self, origin, target):
         dr = origin[0] - target[0]
         dc = origin[1] - target[1]
-        if dr < 2 and dc < 2:
+        if abs(dr) < 2 and abs(dc) < 2:
             self.set(origin, target)
         else:
             self.jump(origin, target)
