@@ -42,18 +42,25 @@ class Range(object):
 class Transistion(object):
     def tick(self, delta, pos):
         raise NotImplementedError
+    
+    def value_changed(self, value):
+        pass
 
 
-class LinearTransistion(object):
+class LinearTransistion(Transistion):
     def __init__(self, value, vdelta):
-        self.value = value
+        self.value = self.start = value
         self.vdelta = vdelta
     
     def tick(self, delta, pos):
         self.value += self.vdelta * delta
+        self.value_changed(self.value)
+    
+    def reset(self):
+        self.value = self.start
 
 
-class QuadraticTransistion(object):
+class QuadraticTransistion(Transistion):
     def __init__(self, length, height, start=0):
         self.k = height / float(length) ** 2
         self.x = 0
@@ -62,6 +69,11 @@ class QuadraticTransistion(object):
     def tick(self, delta, pos):
         self.x += delta
         self.value = self.k * (self.x ** 2) + self.start
+        self.value_changed(self, value)
+    
+    def reset(self):
+        self.value = self.start
+        self.x = 0
 
 
 class Timeline(object):
@@ -74,9 +86,10 @@ class Timeline(object):
         self.transistions.append((ran, trans))
     
     def start(self):
+        self.last = max(ran.stop for (ran, trans) in self.transistions)
         self.starttime = self.lasttick = time.time()
     
-    def tick(self):
+    def tick(self, loop=False):
         t = time.time()
         pos = t - self.starttime
         lastpos = self.lasttick - self.starttime
@@ -90,7 +103,10 @@ class Timeline(object):
             trans.tick(intersect.magnitude(), delta.stop)
         
         self.lasttick = t
-
+        if loop and pos > self.last:
+            for ran, trans in self.transistions:
+                trans.reset()
+                self.starttime = self.lasttick = t
 
 if __name__ == '__main__':
     lt = LinearTransistion(0, 1)
@@ -100,6 +116,6 @@ if __name__ == '__main__':
     st = time.time()
     
     while time.time() - 30 < st:
-        tl.tick()
+        tl.tick(True)
         print lt.value
         time.sleep(1.2)
