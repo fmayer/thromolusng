@@ -14,6 +14,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import itertools
+
 class InvalidTurn(Exception):
     pass
 
@@ -37,16 +39,16 @@ class Board(object):
         return 3 - player
     
     def turn(self, origin, target):
-        if self.board[target]:
+        if self[target]:
             raise InvalidTurn
         dr = origin[0] - target[0]
         dc = origin[1] - target[1]
         if abs(dr) < 2 and abs(dc) < 2:
-            self.set(origin, target)
+            self.walk(origin, target)
         else:
             self.jump(origin, target)
     
-    def set(self, origin, target):
+    def walk(self, origin, target):
         if self[origin] != self.curplayer:
             raise InvalidTurn
         dr = origin[0] - target[0]
@@ -73,7 +75,16 @@ class Board(object):
     def __setitem__(self, i, v):
         if len(i) != 2:
             raise IndexError
-        self.board[i[0]][i[1]] = v
+        row, col = i
+        if v != 0:
+            for ar, ac in itertools.product([0, 1, -1], repeat=2):
+                nr = row + ar
+                nc = col + ac
+                if nr < 0 or nr >= self.rows or nc >= self.cols or nc < 0:
+                    continue
+                if self.board[nr][nc]:
+                    self.board[nr][nc] = v
+        self.board[row][col] = v
     
     def __getitem__(self, i):
         if len(i) != 2:
