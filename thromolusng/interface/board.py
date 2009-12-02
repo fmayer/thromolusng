@@ -156,7 +156,6 @@ class BoardLabel(QtGui.QLabel):
                 )
         self.add_modifier(row, col, self.pickedmod)
         self.repaint()
-        print 'fooo'
     
     def get_coord(self, x, y):
         h = self.height()
@@ -188,12 +187,10 @@ class BoardLabel(QtGui.QLabel):
         self.repaint()
     
     def pick(self, row, col):
-        print 'picked %d %d' % (row, col)
         self.picked = (row, col)
         self.pickedtimeline.start()
     
     def depick(self):
-        print 'depicked'
         row, col = self.picked
         self.picked = None
         self.pickedtimeline.stop()
