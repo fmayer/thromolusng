@@ -5,21 +5,14 @@ from PyQt4 import QtGui, QtCore
 
 # Stub.
 class Modifier(object):
-    def __init__(self):
+    def __init__(self, img=None, absopacity=None, absscale=None,
+                 relopacity=None, relscale=None):
         self.img = None
-        self.opacity = None
-        self.scale = None
+        self.absopacity = None
+        self.absscale = None
         
-        self.submods = []
-    
-    def add_submod(self, mod):
-        self.submods.append(mod)
-    
-    def del_submod(self, mod):
-        self.submods.remove(mod)
-    
-    def __getitem__(self, i):
-        return sum(
+        self.relopacity = 0
+        self.relscale = 0
 
 
 class BoardLabel(QtGui.QLabel):
@@ -28,14 +21,16 @@ class BoardLabel(QtGui.QLabel):
         QtGui.QLabel.__init__(self, parent)
         self.setMouseTracking(True)
         
+        self.setMinimumSize(200, 200)
+        
         self.user_control = True
-        self.lastmodifier = None
+        self.mmmodifier = None
         self.board = board
         self.pid = pid
         self.picked = None
         
         self.modifiers = [
-            [Modifier() for _ in xrange(board.cols)
+            [list() for _ in xrange(board.cols)
              ] for _ in xrange(board.rows)
         ]
         
@@ -77,23 +72,38 @@ class BoardLabel(QtGui.QLabel):
         #paint.drawImage(0, 0, bg)
         
         # Assuming the images are boxed.
-        print boxsize
         imgs = [img.scaledToHeight(boxsize, s_mode) for img in self.img]
         
         for ir in xrange(self.board.rows):
             for ic in xrange(self.board.cols):
-                mod = self.modifiers[ir][ic]
-                if mod.opacity is not None:
-                    paint.setOpacity(mod.opacity)
-                else:
-                    paint.setOpacity(1)
-                if mod.img is not None:
-                    img = mod.img.scaledToHeight(boxsize, s_mode)
-                else:
-                    img = imgs[self.board[ir, ic]]
-                if mod.scale is not None:
-                    img = img.scaledToHeight(size * mod.scale, s_mode)
+                absvalues = {}
+                relvalues = {}
+                for if_, abs_, rel in self.modifiers[ir][ic]:
+                    if if_ is not None and not if_(self.board[ir, ic]):
+                        continue
+                    for key, adjust in rel:
+                        if not key in relvalues:
+                            relvalues[key] = 0
+                        relvalues[key] += adjust
+                    
+                    for key, value in abs_:
+                        if key in absvalues:
+                            raise ValueError(
+                                "Two absolute modifiers on the same value. "
+                                "Aborting"
+                            )
+                        absvalues[key] = value
+                opacity = absvalues.get(
+                    'opacity', 1 + relvalues.get('opacity', 0)
+                )
+                scale = absvalues.get(
+                    'scale', 1 + relvalues.get('scale', 0)
+                )
+                img = absvalues.get('img', imgs[self.board[ir, ic]])
                 
+                # Inefficient.
+                img = img.scaledToHeight(boxsize * scale, s_mode)
+                paint.setOpacity(opacity)
                 paint.drawImage(ic * boxsize, ir * boxsize, img)
         
         # This was a triumph!
@@ -109,36 +119,62 @@ class BoardLabel(QtGui.QLabel):
         if not self.user_control:
             return
         row, col = self.get_coord(event.x(), event.y())
-        print row, col
+        if row >= self.board.rows or col >= self.board.cols:
+            return
         if self.picked is None and self.board[row, col] == self.pid:
             self.pick(row, col)
-        else:
+        elif self.picked:
             try:
                 self.board.turn(self.picked, (row, col))
+            except thromolusng.InvalidTurn:
+                pass
             finally:
                 self.depick()
+                if self.mmmodifier is not None:
+                    self.del_modifier(*self.mmmodifier)
+                    self.mmmodifier = None
         self.repaint()
     
     def pick(self, row, col):
+        print 'picked %d %d' % (row, col)
         self.picked = (row, col)
     
     def depick(self):
-        self.picked = None
-        
+        print 'depicked'
+        self.picked = None 
     
     def mouseMoveEvent(self, event):
         if not self.user_control:
             return
         
         row, col = self.get_coord(event.x(), event.y())
+        if row >= self.board.rows or col >= self.board.cols:
+            return
         if self.picked is not None:
-            if self.lastmodifier is not None:
-                self.lastmodifier.img = self.lastmodifier.opacity = None
+            if self.mmmodifier is not None:
+                if self.mmmodifier[:2] == (row, col):
+                    return
+                self.del_modifier(*self.mmmodifier)
+                self.mmmodifier = None
             if not self.board[row, col]:
-                self.modifiers[row][col].img = self.img[self.pid]
-                self.modifiers[row][col].opacity = 0.5
-                self.lastmodifier = self.modifiers[row][col]
+                m = (
+                    # if
+                    lambda x: x == 0,
+                    # absolute
+                    (('img', self.img[self.pid]), ('opacity', 0.5)),
+                    # relative
+                    tuple()
+                )
+                self.add_modifier(row, col, m)
+                self.mmmodifier = (row, col, m)
         self.repaint()
+    
+    def add_modifier(self, row, col, mod):
+        self.modifiers[row][col].append(mod)
+        return mod
+    
+    def del_modifier(self, row, col, mod):
+        self.modifiers[row][col].remove(mod)
 
 if __name__ == '__main__':
     import sys
