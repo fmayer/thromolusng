@@ -1,33 +1,44 @@
 import thromolusng
 import thromolusng.interface
+import thromolusng.interface.animation
 
 from PyQt4 import QtGui, QtCore
-
-# Stub.
-class Modifier(object):
-    def __init__(self, img=None, absopacity=None, absscale=None,
-                 relopacity=None, relscale=None):
-        self.img = None
-        self.absopacity = None
-        self.absscale = None
-        
-        self.relopacity = 0
-        self.relscale = 0
 
 
 class BoardLabel(QtGui.QLabel):
     PREVIEW_OPACITY = 0.4
-    def __init__(self, pid, board, parent=None):
+    def __init__(self, pid, board, singleplayer=False, parent=None):
         QtGui.QLabel.__init__(self, parent)
         self.setMouseTracking(True)
         
         self.setMinimumSize(200, 200)
+        
+        self.singleplayer = singleplayer
         
         self.user_control = True
         self.mmmodifier = None
         self.board = board
         self.pid = pid
         self.picked = None
+        self.pickedmod = None
+        
+        self.pickedtimeline = thromolusng.interface.animation.Timeline(
+            [
+                (thromolusng.interface.animation.Range(0, 1), 
+                 thromolusng.interface.animation.QuadraticTransistion(
+                     1, -0.5, 1, self.pickedscale)
+                 ),
+                (thromolusng.interface.animation.Range(1, 2), 
+                 thromolusng.interface.animation.QuadraticTransistion(
+                     1, 0.5, 0.5, self.pickedscale)
+                 )
+                ],
+            True
+        )
+        
+        self.aniengine = thromolusng.interface.animation.Engine()
+        self.aniengine.add_timeline(self.pickedtimeline)
+        self.aniengine.start(10)
         
         self.modifiers = [
             [list() for _ in xrange(board.cols)
@@ -104,10 +115,32 @@ class BoardLabel(QtGui.QLabel):
                 # Inefficient.
                 img = img.scaledToHeight(boxsize * scale, s_mode)
                 paint.setOpacity(opacity)
-                paint.drawImage(ic * boxsize, ir * boxsize, img)
+                paint.drawImage(
+                    ic * boxsize + boxsize * (1 - scale) / 2,
+                    ir * boxsize + boxsize * (1 - scale) / 2,
+                    img)
         
         # This was a triumph!
         paint.end()
+    
+    def pickedscale(self, trans, value):
+        row, col = self.picked
+        if self.pickedmod is not None:
+            try:
+                self.del_modifier(row, col, self.pickedmod)
+            except ValueError:
+                pass
+        self.pickedmod = (
+                    # if
+                    None,
+                    # absolute
+                    tuple(),
+                    # relative
+                    (('scale', value  - 1),)
+                )
+        self.add_modifier(row, col, self.pickedmod)
+        self.repaint()
+        print 'fooo'
     
     def get_coord(self, x, y):
         h = self.height()
@@ -128,6 +161,9 @@ class BoardLabel(QtGui.QLabel):
                 self.board.turn(self.picked, (row, col))
             except thromolusng.InvalidTurn:
                 pass
+            else:
+                if self.singleplayer:
+                    self.pid = 3 - self.pid
             finally:
                 self.depick()
                 if self.mmmodifier is not None:
@@ -138,10 +174,16 @@ class BoardLabel(QtGui.QLabel):
     def pick(self, row, col):
         print 'picked %d %d' % (row, col)
         self.picked = (row, col)
+        self.pickedtimeline.start()
     
     def depick(self):
         print 'depicked'
-        self.picked = None 
+        row, col = self.picked
+        self.picked = None
+        self.pickedtimeline.stop()
+        self.pickedtimeline.reset()
+        if self.pickedmod is not None:
+            self.del_modifier(row, col, self.pickedmod)
     
     def mouseMoveEvent(self, event):
         if not self.user_control:
@@ -176,9 +218,10 @@ class BoardLabel(QtGui.QLabel):
     def del_modifier(self, row, col, mod):
         self.modifiers[row][col].remove(mod)
 
+
 if __name__ == '__main__':
     import sys
     app = QtGui.QApplication(sys.argv)
-    main = BoardLabel(1, thromolusng.Board(6, 6))
+    main = BoardLabel(1, thromolusng.Board(7, 7), True)
     main.show()
     app.exec_()

@@ -18,9 +18,7 @@ class Board(object):
     
     @staticmethod
     def other_player(player):
-        # return 3 - player
-        # DEBUG
-        return player
+        return 3 - player
     
     def turn(self, origin, target):
         dr = origin[0] - target[0]
