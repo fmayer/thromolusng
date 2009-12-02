@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: us-ascii -*-
 
-# asynchia - asynchronous networking library
+# thromolusng - a game
 # Copyright (C) 2009 Florian Mayer
 
 # This program is free software: you can redistribute it and/or modify
