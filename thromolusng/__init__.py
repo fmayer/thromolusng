@@ -37,6 +37,8 @@ class Board(object):
         return 3 - player
     
     def turn(self, origin, target):
+        if self.board[target]:
+            raise InvalidTurn
         dr = origin[0] - target[0]
         dc = origin[1] - target[1]
         if abs(dr) < 2 and abs(dc) < 2:
