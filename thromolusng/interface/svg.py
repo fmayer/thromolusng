@@ -19,7 +19,7 @@
 from PyQt4 import QtSvg, QtCore, QtGui
 
 
-class SVGFakePixmap:
+class SVGFakePixmap(object):
     def __init__(self, img):
         self.render = QtSvg.QSvgRenderer(img)
         self.cache = None
