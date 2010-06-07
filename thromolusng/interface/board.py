@@ -31,6 +31,8 @@ class BoardLabel(QtGui.QLabel):
         
         self.singleplayer = singleplayer
         
+        self.cachedsize = None
+        self.imgcache = None
         self.user_control = True
         self.mmmodifier = None
         self.board = board
@@ -99,7 +101,14 @@ class BoardLabel(QtGui.QLabel):
         #paint.drawImage(0, 0, bg)
         
         # Assuming the images are boxed.
-        imgs = [img.scaledToHeight(boxsize, s_mode) for img in self.img]
+        if self.imgcache is not None and self.cachedsize == boxsize:
+            print 'Using cache'
+            imgs = self.imgcache
+        else:
+            print 'Not using cache'
+            self.imgcache = imgs = \
+                [img.scaledToHeight(boxsize, s_mode) for img in self.img]
+            self.cachedsize = boxsize
         
         for ir in xrange(self.board.rows):
             for ic in xrange(self.board.cols):
