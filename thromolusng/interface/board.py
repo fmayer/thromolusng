@@ -102,10 +102,8 @@ class BoardLabel(QtGui.QLabel):
         
         # Assuming the images are boxed.
         if self.imgcache is not None and self.cachedsize == boxsize:
-            print 'Using cache'
             imgs = self.imgcache
         else:
-            print 'Not using cache'
             self.imgcache = imgs = \
                 [img.scaledToHeight(boxsize, s_mode) for img in self.img]
             self.cachedsize = boxsize
