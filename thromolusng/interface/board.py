@@ -45,7 +45,7 @@ class BoardLabel(QtGui.QLabel):
         self.pid = pid
         #: Coordinates of the stone picked by the user.
         self.picked = None
-        #: Modifier that highlights the picked piced by resizing it back
+        #: Modifier that highlights the picked piece by resizing it back
         # and forth.
         self.pickedmod = None
         
