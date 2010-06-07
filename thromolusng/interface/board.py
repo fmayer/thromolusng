@@ -38,7 +38,7 @@ class BoardLabel(QtGui.QLabel):
         self.imgcache = None
         #: Flag to specify whether the user may do input or not.
         self.user_control = True
-        #: Modifier that enables the semi-transparent previwe when
+        #: Modifier that enables the semi-transparent preview when
         # having picked a piece.
         self.mmmodifier = None
         self.board = board
