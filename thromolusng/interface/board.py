@@ -33,7 +33,7 @@ class BoardLabel(QtGui.QLabel):
         
         #: Height and width of the images stored in imgcache.
         self.cachedsize = None
-        #: List of resized images (empty, white, black) chached from last
+        #: List of resized images (empty, white, black) cached from last
         # call of paintEvent.
         self.imgcache = None
         #: Flag to specify whether the user may do input or not.
