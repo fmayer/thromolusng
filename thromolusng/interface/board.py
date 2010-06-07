@@ -31,13 +31,22 @@ class BoardLabel(QtGui.QLabel):
         
         self.singleplayer = singleplayer
         
+        #: Height and width of the images stored in imgcache.
         self.cachedsize = None
+        #: List of resized images (empty, white, black) chached from last
+        # call of paintEvent.
         self.imgcache = None
+        #: Flag to specify whether the user may do input or not.
         self.user_control = True
+        #: Modifier that enables the semi-transparent previwe when
+        # having picked a piece.
         self.mmmodifier = None
         self.board = board
         self.pid = pid
+        #: Coordinates of the stone picked by the user.
         self.picked = None
+        #: Modifier that highlights the picked piced by resizing it back
+        # and forth.
         self.pickedmod = None
         
         self.pickedtimeline = thromolusng.interface.animation.Timeline(
