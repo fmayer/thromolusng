@@ -36,13 +36,13 @@ class BoardLabel(QtGui.QLabel):
         #: List of resized images (empty, white, black) cached from last
         # call of paintEvent.
         self.imgcache = None
-        #: Flag to specify whether the user may do input or not.
-        self.user_control = True
         #: Modifier that enables the semi-transparent preview when
         # having picked a piece.
         self.mmmodifier = None
         self.board = board
         self.pid = pid
+        if singleplayer:
+            self.pid = board.curplayer
         #: Coordinates of the stone picked by the user.
         self.picked = None
         #: Modifier that highlights the picked piece by resizing it back
@@ -246,6 +246,10 @@ class BoardLabel(QtGui.QLabel):
     
     def del_modifier(self, row, col, mod):
         self.modifiers[row][col].remove(mod)
+    
+    @property
+    def user_control(self):
+        return (self.pid == self.board.curplayer)
 
 
 if __name__ == '__main__':
