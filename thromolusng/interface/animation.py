@@ -149,7 +149,7 @@ class Timeline(object):
         if self.loop and pos > self.last:
             for ran, trans in self.transistions:
                 trans.reset()
-                self.starttime = self.lasttick = t
+            self.starttime = self.lasttick = t
 
 
 class Engine(object):
