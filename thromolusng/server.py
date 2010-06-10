@@ -24,7 +24,6 @@ class PackageCollector(asynchia.ee.CollectorQueue):
     
     def header_finished(self, header):
         self.type_ = header.value[0]
-        print 'foo'
         self.add_collector(TYPES[self.type_]())
     
     def finish_collector(self, coll):
