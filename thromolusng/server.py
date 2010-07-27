@@ -21,58 +21,126 @@ import asynchia.ee
 
 import thromolusng.packages
 
-
-class TestCollector(asynchia.ee.StructCollector):
+class MessageCollector(asynchia.ee.CollectorQueue):
     def __init__(self, onclose=None):
-        asynchia.ee.StructCollector.__init__(self, struct.Struct('B'), onclose)
+        asynchia.ee.CollectorQueue.__init__(
+            self,
+            [# Target channel.
+             asynchia.ee.StructCollector('L', self.chancollected),
+             # Origin
+             asynchia.ee.StructCollector('L', self.set_size)],
+            onclose)
+        
+        self.channel = None
+        self.message = None
+    
+    def set_size(self, coll):
+        self.add_collector(
+            asynchia.ee.DelimitedCollector(
+                asynchia.ee.StringCollector(),
+                coll.value[0], self.msgcollected
+            )
+        )
+    
+    def chancollected(self, coll):
+        self.channel = coll.value[0]
+    
+    def msgcollected(self, coll):
+        self.message = coll.collector.string
+
+
+class PositionCollector(asynchia.ee.StructCollector):
+    def __init__(self, onclose=None):
+        asynchia.ee.StructCollector.__init__(self, struct.Struct('BB'), onclose)
 
 
 class HeaderCollector(asynchia.ee.StructCollector):
     def __init__(self, onclose=None):
         asynchia.ee.StructCollector.__init__(self, struct.Struct('B'), onclose)
+    
+    def get_value(self):
+        return self.value[0]
 
 
 class PackageCollector(asynchia.ee.CollectorQueue):
-    def __init__(self, onclose=None):
+    def __init__(self, header, dispatcher, onclose=None):
         asynchia.ee.CollectorQueue.__init__(
-            self, [HeaderCollector(self.header_finished)], onclose)
+            self, [header(self.header_finished)], onclose)
         self.collected = []
+        
+        self.dispatcher = dispatcher
     
     def header_finished(self, header):
-        self.type_ = header.value[0]
-        self.add_collector(TYPES[self.type_]())
+        self.header = header
+        self.type_ = header.get_value()
+        self.add_collector(self.dispatcher[self.type_]())
     
     def finish_collector(self, coll):
         self.collected.append(coll)
 
 
 class Connection(asynchia.ee.Handler):
-    def __init__(self, socket_map, sock=None,
+    def __init__(self, server, socket_map, sock=None,
                  buffer_size=9046):
+        self.server = server
+        
         asynchia.ee.Handler.__init__(
             self,
             socket_map,
             sock,
             asynchia.ee.FactoryCollector(
-                lambda: PackageCollector(self.package_received)
+                lambda: PackageCollector(HeaderCollector, TYPES,
+                                         self.package_received)
             )
         )
     
     def package_received(self, pkg):
         print pkg
 
-TYPES = {thromolusng.packages.TEST: TestCollector}
+
+class Server(asynchia.AcceptHandler):
+    def __init__(self, socket_map, sock=None):
+        asynchia.AcceptHandler.__init__(self, socket_map, sock)
+        
+        self.game_idpool = asynchia.util.IDPool()
+        self.player_idpool = asynchia.util.IDPool()
+        
+        self.channel_idpool = asynchia.util.IDPool()
+        
+        self.games = {}
+    
+    def handle_accept(self, sock, addr):
+        Connection(self, self.socket_map, sock)
+
+
+TYPES = {
+    thromolusng.packages.TURN: (
+        asynchia.ee.CollectorQueue(
+            [
+                # Game ID.
+                asynchia.ee.StructCollector('B'),
+                # Origin
+                PositionCollector(),
+                # Target
+                PositionCollector()
+            ]
+        )
+    ),
+    thromolusng.packages.MSG: MessageCollector,
+    
+}
+
 
 if __name__ == '__main__':
     def recv(pkg):
-        print pkg
+        print pkg.collected[1]
     
     m =  asynchia.ee.MockHandler(
         struct.pack('BB', thromolusng.packages.TEST, 251)
     )
     
     c = asynchia.ee.FactoryCollector(
-        lambda: PackageCollector(recv)
+        lambda: PackageCollector(HeaderCollector, TYPES, recv)
     )
     
     d = False

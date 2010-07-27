@@ -16,5 +16,25 @@
 
 import itertools
 
+
+# Do not change order of symbols, less their values are changed,
+# making them incompatible with prior versions. Append any new
+# symbols on the bottom, stating the version they were introduced
+# in.
 enum = itertools.count()
-TEST = enum.next()
+
+TURN = enum.next()
+MSG = enum.next()
+LIN_GCHALLENGE = enum.next()
+LIN_RESPONSE = enum.next()
+LOUT = enum.next()
+INVALID = enum.next()
+OPENG = enum.next()
+GOPEN = enum.next()
+LISTG = enum.next()
+GDETAIL = enum.next()
+GETCHAN = enum.next()
+SUBSCHAN = enum.next()
+UNSUBCHAN = enum.next()
+CHANOFF = enum.next()
+GETROOMS = enum.next()
