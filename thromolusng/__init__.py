@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import itertools
+import random
 
 class InvalidTurn(Exception):
     pass
@@ -24,13 +25,94 @@ class InvalidPlayer(Exception):
     pass
 
 
+class GameFull(Exception):
+    pass
+
+
+class GameNotFull(Exception):
+    pass
+
+
+class Observer(object):
+    def __init__(self):
+        pass
+    
+    def observe(self):
+        pass
+
+class Player(object):
+    def __init__(self):
+        self.game = None
+        self.id_ = None
+    
+    def setid(self, id_):
+        self.id_ = id_
+    
+    def setgame(self, game):
+        self.game = game
+    
+    def your_turn(self, origin, target):
+        pass
+    
+    def turn(self, origin, target):
+        self.game.turn(self, origin, target)
+
+
+class Game(object):
+    def __init__(self, board=None):
+        if board is None:
+            board = Board()
+        self.board = board
+        
+        self.players = []
+        self.curplayer = None
+    
+    def add_player(self, player):
+        player.setid(self.new_id())
+        player.setgame(self)
+        
+        self.players.append(player)
+        # Might be helpsome so that the player can be constructed
+        # in the parameter list, such as game.add_player(Player()).
+        return player
+    
+    def get_player_by_id(self ,id_):
+        return self.players[id_ - 1]
+
+    def new_id(self):
+        """ Get the next free uid for a player. """
+        players = len(self.players)
+        if players == 2:
+            raise GameFull
+        return players + 1
+    
+    def random_beginner(self):
+        if len(self.players) != 2:
+            raise GameNotFull
+        self.curplayer = random.choice(self.players)
+        return self.curplayer
+    
+    def start(self):
+        self.curplayer.your_turn(None, None)
+    
+    def turn(self, player, origin, target):
+        if player is self.curplayer:
+            self.board.turn(player.id_, origin, target)
+            self.curplayer = self.other_player(player)
+            self.curplayer.your_turn(origin, target)
+        else:
+            raise InvalidPlayer
+    
+    def other_player(self, player):
+        return self.players[2 - player.id_]
+
+
 class Board(object):
-    def __init__(self, rows, cols, curplayer=1):
+    def __init__(self, rows, cols):
         self.board = [[0 for _ in xrange(cols)] for _ in xrange(rows)]
         self.board[0][0] = self.board[rows - 1][cols - 1] = 1
         self.board[0][cols - 1] = self.board[rows - 1][0] = 2
         
-        self.curplayer = curplayer
         self.rows = rows
         self.cols = cols
     
@@ -38,29 +120,28 @@ class Board(object):
     def other_player(player):
         return 3 - player
     
-    def turn(self, origin, target):
+    def turn(self, player, origin, target):
         if self[target]:
             raise InvalidTurn
         dr = origin[0] - target[0]
         dc = origin[1] - target[1]
         if abs(dr) < 2 and abs(dc) < 2:
-            self.walk(origin, target)
+            self.walk(player, origin, target)
         else:
-            self.jump(origin, target)
+            self.jump(player, origin, target)
     
-    def walk(self, origin, target):
-        if self[origin] != self.curplayer:
-            raise InvalidPlayer
+    def walk(self, player, origin, target):
+        if self[origin] != player:
+            raise InvalidTurn
         dr = origin[0] - target[0]
         dc = origin[1] - target[1]
         if abs(dr) > 1 or abs(dc) > 1 or self[target]:
             raise InvalidTurn
         self[target] = self[origin]
-        self.curplayer = self.other_player(self.curplayer)
     
-    def jump(self, origin, target):
-        if self[origin] != self.curplayer:
-            raise InvalidPlayer
+    def jump(self, player, origin, target):
+        if self[origin] != player:
+            raise InvalidTurn
         dr = abs(origin[0] - target[0])
         dc = abs(origin[1] - target[1])
         
@@ -70,7 +151,6 @@ class Board(object):
         
         self[target] = self[origin]
         self[origin] = 0
-        self.curplayer = self.other_player(self.curplayer)
     
     def __setitem__(self, i, v):
         if len(i) != 2:

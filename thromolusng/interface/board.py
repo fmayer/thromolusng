@@ -20,10 +20,9 @@ import thromolusng.interface.animation
 
 from PyQt4 import QtGui, QtCore
 
-
 class BoardLabel(QtGui.QLabel):
     PREVIEW_OPACITY = 0.4
-    def __init__(self, pid, board, singleplayer=False, parent=None):
+    def __init__(self, player, game, singleplayer=False, parent=None):
         QtGui.QLabel.__init__(self, parent)
         self.setMouseTracking(True)
         
@@ -39,10 +38,12 @@ class BoardLabel(QtGui.QLabel):
         #: Modifier that enables the semi-transparent preview when
         # having picked a piece.
         self.mmmodifier = None
-        self.board = board
-        self.pid = pid
+        self.game = game
+        self.player = player
         if singleplayer:
-            self.pid = board.curplayer
+            self.player = game.curplayer
+            for player in game.players:
+                player.your_turn = self.swap_player
         #: Coordinates of the stone picked by the user.
         self.picked = None
         #: Modifier that highlights the picked piece by resizing it back
@@ -68,8 +69,8 @@ class BoardLabel(QtGui.QLabel):
         self.aniengine.start(10)
         
         self.modifiers = [
-            [list() for _ in xrange(board.cols)
-             ] for _ in xrange(board.rows)
+            [list() for _ in xrange(game.board.cols)
+             ] for _ in xrange(game.board.rows)
         ]
         
         self.bg_image = QtGui.QImage(
@@ -92,6 +93,9 @@ class BoardLabel(QtGui.QLabel):
                 thromolusng.interface.get_data('ball-bg.png')
         )
     
+    def swap_player(self, origin, target):
+        self.player = self.game.other_player(self.player)
+    
     def paintEvent(self, event):
         # We might want to change that for performance reasons later on.
         # Either FastTransformation or SmoothTransformation.
@@ -99,7 +103,7 @@ class BoardLabel(QtGui.QLabel):
         
         h = self.height()
         w = self.width()
-        boxsize = min((h / self.board.rows, w / self.board.cols))
+        boxsize = min((h / self.game.board.rows, w / self.game.board.cols))
         size = max((h, w))
         
         paint = QtGui.QPainter()
@@ -117,12 +121,12 @@ class BoardLabel(QtGui.QLabel):
                 [img.scaledToHeight(boxsize, s_mode) for img in self.img]
             self.cachedsize = boxsize
         
-        for ir in xrange(self.board.rows):
-            for ic in xrange(self.board.cols):
+        for ir in xrange(self.game.board.rows):
+            for ic in xrange(self.game.board.cols):
                 absvalues = {}
                 relvalues = {}
                 for if_, abs_, rel in self.modifiers[ir][ic]:
-                    if if_ is not None and not if_(self.board[ir, ic]):
+                    if if_ is not None and not if_(self.game.board[ir, ic]):
                         continue
                     for key, adjust in rel:
                         if not key in relvalues:
@@ -142,7 +146,7 @@ class BoardLabel(QtGui.QLabel):
                 scale = absvalues.get(
                     'scale', 1 + relvalues.get('scale', 0)
                 )
-                img = absvalues.get('img', imgs[self.board[ir, ic]])
+                img = absvalues.get('img', imgs[self.game.board[ir, ic]])
                 
                 # Inefficient.
                 img = img.scaledToHeight(boxsize * scale, s_mode)
@@ -176,25 +180,22 @@ class BoardLabel(QtGui.QLabel):
     def get_coord(self, x, y):
         h = self.height()
         w = self.width()
-        boxsize = min((h / self.board.rows, w / self.board.cols))
+        boxsize = min((h / self.game.board.rows, w / self.game.board.cols))
         return y / boxsize, x / boxsize
     
     def mousePressEvent(self, event):
         if not self.user_control:
             return
         row, col = self.get_coord(event.x(), event.y())
-        if row >= self.board.rows or col >= self.board.cols:
+        if row >= self.game.board.rows or col >= self.game.board.cols:
             return
-        if self.picked is None and self.board[row, col] == self.pid:
+        if self.picked is None and self.game.board[row, col] == self.player.id_:
             self.pick(row, col)
         elif self.picked:
             try:
-                self.board.turn(self.picked, (row, col))
+                self.player.turn(self.picked, (row, col))
             except thromolusng.InvalidTurn:
                 pass
-            else:
-                if self.singleplayer:
-                    self.pid = 3 - self.pid
             finally:
                 self.depick()
                 if self.mmmodifier is not None:
@@ -219,7 +220,7 @@ class BoardLabel(QtGui.QLabel):
             return
         
         row, col = self.get_coord(event.x(), event.y())
-        if row >= self.board.rows or col >= self.board.cols:
+        if row >= self.game.board.rows or col >= self.game.board.cols:
             return
         if self.picked is not None:
             if self.mmmodifier is not None:
@@ -227,12 +228,12 @@ class BoardLabel(QtGui.QLabel):
                     return
                 self.del_modifier(*self.mmmodifier)
                 self.mmmodifier = None
-            if not self.board[row, col]:
+            if not self.game.board[row, col]:
                 m = (
                     # if
                     lambda x: x == 0,
                     # absolute
-                    (('img', self.img[self.pid]), ('opacity', 0.5)),
+                    (('img', self.img[self.player.id_]), ('opacity', 0.5)),
                     # relative
                     tuple()
                 )
@@ -249,12 +250,20 @@ class BoardLabel(QtGui.QLabel):
     
     @property
     def user_control(self):
-        return (self.pid == self.board.curplayer)
+        return (self.player == self.game.curplayer)
 
 
 if __name__ == '__main__':
     import sys
+    
+    g = thromolusng.Game(thromolusng.Board(7, 7))
+    g.add_player(thromolusng.Player())
+    g.add_player(thromolusng.Player())
+    g.random_beginner()
+    g.start()
+    
     app = QtGui.QApplication(sys.argv)
-    main = BoardLabel(1, thromolusng.Board(7, 7), True)
+    main = BoardLabel(1, g, True)
     main.show()
+
     app.exec_()

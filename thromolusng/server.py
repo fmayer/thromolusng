@@ -122,8 +122,6 @@ class Session(object):
     
     def join_game(self, id_):
         self.players[id_] = self.server_data.join_game(id_)
-    
-    
 
 
 class Connection(asynchia.ee.Handler):
