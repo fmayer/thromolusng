@@ -122,7 +122,7 @@ class Connection(asynchia.ee.Handler):
         self.expected_response = None
         
         self.package_dispatcher = {
-            LIN_GCHALLENGE: self.lin_challenge
+            thromolusng.packages.LIN_GCHALLENGE: self.lin_challenge
         }
             
         
