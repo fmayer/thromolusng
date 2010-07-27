@@ -16,12 +16,14 @@
 
 import struct
 import traceback
+import hashlib
 
 import asynchia
 import asynchia.ee
 import asynchia.maps
 
 import thromolusng.packages
+import thromolusng.crypto
 
 class FixedSizeStringCollector(asynchia.ee.CollectorQueue):
     def __init__(self, onclose=None):
@@ -113,6 +115,17 @@ class PackageCollector(asynchia.ee.CollectorQueue):
         self.collected.append(coll)
 
 
+class Session(object):
+    def __init__(self, server_data):
+        self.players = {}
+        self.server_data = server_data
+    
+    def join_game(self, id_):
+        self.players[id_] = self.server_data.join_game(id_)
+    
+    
+
+
 class Connection(asynchia.ee.Handler):
     def __init__(self, server, socket_map, sock=None,
                  buffer_size=9046):
@@ -157,32 +170,39 @@ class Connection(asynchia.ee.Handler):
             self._handle_return(self.invalid_packet(pkg))
         else:
             try:
-                self._handle_return(self.invalid_packet(pkg))
+                self._handle_return(fun(pkg))
             except Exception:
                 self._handle_return(self.internal_error(pkg))
     
     def _handle_return(self, ret):
         if ret is not None:
             self.send_input(ret)
-        
 
 
-class Server(asynchia.AcceptHandler):
-    def __init__(self, socket_map, sock=None):
-        asynchia.AcceptHandler.__init__(self, socket_map, sock)
-        
+class ServerData(object):
+    def __init__(self):
         self.game_idpool = asynchia.util.IDPool()
         self.player_idpool = asynchia.util.IDPool()
         self.channel_idpool = asynchia.util.IDPool()
         
         self.games = {}
     
-    def handle_accept(self, sock, addr):
-        Connection(self, self.socket_map, sock)
+    def get_pwd(self, user):
+        pass
     
     def log_error(self, msg):
         """ Log error with msg and return a unique identifier for it. """
         pass
+
+
+class Server(asynchia.AcceptHandler):
+    def __init__(self, socket_map, sock=None):
+        asynchia.AcceptHandler.__init__(self, socket_map, sock)
+        
+        self.server_data = ServerData()
+    
+    def handle_accept(self, sock, addr):
+        Connection(self.server_data, self.socket_map, sock)
 
 
 TYPES = {
@@ -200,7 +220,7 @@ TYPES = {
     ),
     thromolusng.packages.MSG: MessageCollector,
     thromolusng.packages.LOUT: None,
-    thromolusng.packages.LIN_GCHALLENGE: None,
+    thromolusng.packages.LIN_GCHALLENGE: FixedSizeStringCollector,
     thromolusng.packages.LISTG: None,
     thromolusng.packages.GETROOMS: None,
     thromolusng.packages.GOPEN: None,
