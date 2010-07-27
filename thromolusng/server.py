@@ -66,14 +66,21 @@ class PackageCollector(asynchia.ee.CollectorQueue):
     def __init__(self, header, dispatcher, onclose=None):
         asynchia.ee.CollectorQueue.__init__(
             self, [header(self.header_finished)], onclose)
-        self.collected = []
         
+        self.collected = []
         self.dispatcher = dispatcher
+        self.invalid = False
     
     def header_finished(self, header):
         self.header = header
         self.type_ = header.get_value()
-        self.add_collector(self.dispatcher[self.type_]())
+        try:
+            coll = self.dispatcher[self.type_]
+        except KeyError:
+            self.invalid = True
+        else:
+            if coll is not None:
+                self.add_collector(coll())
     
     def finish_collector(self, coll):
         self.collected.append(coll)
@@ -83,6 +90,9 @@ class Connection(asynchia.ee.Handler):
     def __init__(self, server, socket_map, sock=None,
                  buffer_size=9046):
         self.server = server
+        
+        self.loggedin = False
+        self.expected_response = None
         
         asynchia.ee.Handler.__init__(
             self,
@@ -114,8 +124,8 @@ class Server(asynchia.AcceptHandler):
 
 
 TYPES = {
-    thromolusng.packages.TURN: (
-        asynchia.ee.CollectorQueue(
+    thromolusng.packages.TURN: lambda: (
+        asynchia.ee.KeepingCollectorQueue(
             [
                 # Game ID.
                 asynchia.ee.StructCollector('B'),
@@ -127,6 +137,8 @@ TYPES = {
         )
     ),
     thromolusng.packages.MSG: MessageCollector,
+    thromolusng.packages.LOUT: None,
+    thromolusng.packages.LIN_GCHALLENGE: None,
     
 }
 

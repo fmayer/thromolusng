@@ -23,6 +23,7 @@ import itertools
 # in.
 enum = itertools.count()
 
+# Do turn in a game. B[Game-Id]B[Origin-x]B[Origin-y]B[Target-x]B[Target-y]
 TURN = enum.next()
 MSG = enum.next()
 LIN_GCHALLENGE = enum.next()
