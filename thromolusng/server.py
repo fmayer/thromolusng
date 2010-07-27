@@ -19,6 +19,7 @@ import traceback
 
 import asynchia
 import asynchia.ee
+import asynchia.maps
 
 import thromolusng.packages
 
@@ -75,7 +76,9 @@ class MessageCollector(asynchia.ee.CollectorQueue):
 
 class PositionCollector(asynchia.ee.StructCollector):
     def __init__(self, onclose=None):
-        asynchia.ee.StructCollector.__init__(self, struct.Struct('!BB'), onclose)
+        asynchia.ee.StructCollector.__init__(
+            self, struct.Struct('!BB'), onclose
+        )
 
 
 class HeaderCollector(asynchia.ee.StructCollector):
@@ -221,7 +224,7 @@ TYPES = {
 }
 
 
-if __name__ == '__main__':
+def _simpletest():
     def recv(pkg):
         print pkg.collected[1].value
     
@@ -237,3 +240,19 @@ if __name__ == '__main__':
     while not d:
         d, s = c.add_data(m, 2)    
 
+
+def _test():
+    m = asynchia.maps.DefaultSocketMap()
+    s = Server(m)
+    s.reuse_addr()
+    s.bind(('', 12345))
+    s.listen(0)
+    
+    try:
+        m.run()
+    finally:
+        m.close()
+
+
+if __name__ == '__main__':
+    _test()
