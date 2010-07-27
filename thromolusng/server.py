@@ -173,7 +173,6 @@ class Server(asynchia.AcceptHandler):
         
         self.game_idpool = asynchia.util.IDPool()
         self.player_idpool = asynchia.util.IDPool()
-        
         self.channel_idpool = asynchia.util.IDPool()
         
         self.games = {}
