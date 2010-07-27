@@ -24,18 +24,20 @@ import itertools
 enum = itertools.count()
 
 # Do turn in a game. B[Game-Id]B[Origin-x]B[Origin-y]B[Target-x]B[Target-y]
-TURN = enum.next()
-MSG = enum.next()
-LIN_GCHALLENGE = enum.next()
+TURN = enum.next() # dispatched
+MSG = enum.next() # dispatched
+LIN_GCHALLENGE = enum.next() # dispatched
 LIN_RESPONSE = enum.next()
-LOUT = enum.next()
+LOUT = enum.next() # dispatched
 INVALID = enum.next()
-OPENG = enum.next()
-GOPEN = enum.next()
-LISTG = enum.next()
-GDETAIL = enum.next()
+OPENG = enum.next() # dispatched
+GOPEN = enum.next() # only sent by server
+LISTG = enum.next() # dispatched
+GDETAIL = enum.next() # dispatched
 GETCHAN = enum.next()
-SUBSCHAN = enum.next()
-UNSUBCHAN = enum.next()
-CHANOFF = enum.next()
-GETROOMS = enum.next()
+SUBSCHAN = enum.next() # dispatched
+UNSUBCHAN = enum.next() # dispatched
+CHANOFF = enum.next() # only sent by server
+GETROOMS = enum.next() # dispatched
+JOING = enum.next() # dispatched
+INTERNALERROR = enum.next() # dispatched
