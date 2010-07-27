@@ -50,7 +50,7 @@ class Board(object):
     
     def walk(self, origin, target):
         if self[origin] != self.curplayer:
-            raise InvalidTurn
+            raise InvalidPlayer
         dr = origin[0] - target[0]
         dc = origin[1] - target[1]
         if abs(dr) > 1 or abs(dc) > 1 or self[target]:
@@ -60,7 +60,7 @@ class Board(object):
     
     def jump(self, origin, target):
         if self[origin] != self.curplayer:
-            raise InvalidTurn
+            raise InvalidPlayer
         dr = abs(origin[0] - target[0])
         dc = abs(origin[1] - target[1])
         
