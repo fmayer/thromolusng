@@ -44,6 +44,8 @@ class Player(object):
     def __init__(self):
         self.game = None
         self.id_ = None
+        
+        self.hascontrol = False
     
     def setid(self, id_):
         self.id_ = id_
@@ -51,7 +53,10 @@ class Player(object):
     def setgame(self, game):
         self.game = game
     
-    def your_turn(self, origin, target):
+    def your_turn(self):
+        pass
+    
+    def show_turn(self, player, origin, target):
         pass
     
     def turn(self, origin, target):
@@ -93,13 +98,18 @@ class Game(object):
         return self.curplayer
     
     def start(self):
-        self.curplayer.your_turn(None, None)
+        self.curplayer.your_turn()
+        self.curplayer.hascontrol = True
     
     def turn(self, player, origin, target):
         if player is self.curplayer:
             self.board.turn(player.id_, origin, target)
+            for playr in self.players:
+                playr.show_turn(player, origin, target)
+                playr.hascontrol = False
             self.curplayer = self.other_player(player)
-            self.curplayer.your_turn(origin, target)
+            self.curplayer.hascontrol = True
+            self.curplayer.your_turn()
         else:
             raise InvalidPlayer
     
@@ -122,7 +132,7 @@ class Board(object):
     
     def turn(self, player, origin, target):
         if self[target]:
-            raise InvalidTurn
+            raise InvalidTurn(player, origin, target)
         dr = origin[0] - target[0]
         dc = origin[1] - target[1]
         if abs(dr) < 2 and abs(dc) < 2:

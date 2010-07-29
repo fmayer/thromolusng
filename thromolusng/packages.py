@@ -20,8 +20,8 @@ import itertools
 # Do not change order of symbols, less their values are changed,
 # making them incompatible with prior versions. Append any new
 # symbols on the bottom, stating the version they were introduced
-# in.
-enum = itertools.count()
+# in. 256 is reserved in case package types run out.
+enum = xrange(256)
 
 # Do turn in a game. B[Game-Id]B[Origin-x]B[Origin-y]B[Target-x]B[Target-y]
 TURN = enum.next() # dispatched
@@ -41,3 +41,22 @@ CHANOFF = enum.next() # only sent by server
 GETROOMS = enum.next() # dispatched
 JOING = enum.next() # dispatched
 INTERNALERROR = enum.next() # dispatched
+# Do turn in a game. L[Game-Id]B[Player-id]B[Origin-x]B[Origin-y]B[Target-x]B[Target-y]
+STURN = enum.next()
+YTURN = enum.next()
+GAMEL = enum.next()
+
+STURN_STRUCT = struct.Struct('!LBBBBB')
+YTURN_STRUCT = struct.Struct('!LB')
+
+def make_STURN(player, origin, target):
+    return STURN_STRUCT.pack(
+        player.game.id_, player.id_, origin[0], origin[1],
+        target[0], target[1]
+    )
+
+
+def make_YTURN(player, origin, target):
+    return YTURN_STRUCT.pack(
+        player.game.id_, player.id_
+    )

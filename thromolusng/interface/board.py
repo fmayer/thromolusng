@@ -14,21 +14,25 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import itertools
+
 import thromolusng
 import thromolusng.interface
 import thromolusng.interface.animation
 
 from PyQt4 import QtGui, QtCore
 
-class BoardLabel(QtGui.QLabel):
+class GameWindow(QtGui.QMainWindow):
+    
+
+
+class BoardLabel(QtGui.QMainWindow):
     PREVIEW_OPACITY = 0.4
-    def __init__(self, player, game, singleplayer=False, parent=None):
+    def __init__(self, player, hotseat=None, board=None, parent=None):
         QtGui.QLabel.__init__(self, parent)
         self.setMouseTracking(True)
         
         self.setMinimumSize(200, 200)
-        
-        self.singleplayer = singleplayer
         
         #: Height and width of the images stored in imgcache.
         self.cachedsize = None
@@ -38,12 +42,21 @@ class BoardLabel(QtGui.QLabel):
         #: Modifier that enables the semi-transparent preview when
         # having picked a piece.
         self.mmmodifier = None
-        self.game = game
-        self.player = player
-        if singleplayer:
-            self.player = game.curplayer
-            for player in game.players:
-                player.your_turn = self.swap_player
+        if board is None:
+            board = thromolusng.Board(7, 7)
+        self.board = board
+        
+        if hotseat is not None:
+            self.hotseat = itertools.chain(itertools.cycle([player, hotseat]))
+            player.your_turn = self.swap_player
+            hotseat.your_turn = self.swap_player
+            # Only one player must subscribe to turns done in the game,
+            # lest show_turn is called twice and thus fails.
+            player.show_turn = self.show_turn
+            self.player = self.hotseat.next()
+        else:
+            self.player = player
+            self.player.show_turn = self.show_turn
         #: Coordinates of the stone picked by the user.
         self.picked = None
         #: Modifier that highlights the picked piece by resizing it back
@@ -69,8 +82,8 @@ class BoardLabel(QtGui.QLabel):
         self.aniengine.start(10)
         
         self.modifiers = [
-            [list() for _ in xrange(game.board.cols)
-             ] for _ in xrange(game.board.rows)
+            [list() for _ in xrange(board.cols)
+             ] for _ in xrange(board.rows)
         ]
         
         self.bg_image = QtGui.QImage(
@@ -93,8 +106,11 @@ class BoardLabel(QtGui.QLabel):
                 thromolusng.interface.get_data('ball-bg.png')
         )
     
-    def swap_player(self, origin, target):
-        self.player = self.game.other_player(self.player)
+    def swap_player(self):
+        self.player = self.hotseat.next()
+    
+    def show_turn(self, player, origin, target):
+        self.board.turn(player.id_, origin, target)
     
     def paintEvent(self, event):
         # We might want to change that for performance reasons later on.
@@ -103,7 +119,7 @@ class BoardLabel(QtGui.QLabel):
         
         h = self.height()
         w = self.width()
-        boxsize = min((h / self.game.board.rows, w / self.game.board.cols))
+        boxsize = min((h / self.board.rows, w / self.board.cols))
         size = max((h, w))
         
         paint = QtGui.QPainter()
@@ -121,12 +137,12 @@ class BoardLabel(QtGui.QLabel):
                 [img.scaledToHeight(boxsize, s_mode) for img in self.img]
             self.cachedsize = boxsize
         
-        for ir in xrange(self.game.board.rows):
-            for ic in xrange(self.game.board.cols):
+        for ir in xrange(self.board.rows):
+            for ic in xrange(self.board.cols):
                 absvalues = {}
                 relvalues = {}
                 for if_, abs_, rel in self.modifiers[ir][ic]:
-                    if if_ is not None and not if_(self.game.board[ir, ic]):
+                    if if_ is not None and not if_(self.board[ir, ic]):
                         continue
                     for key, adjust in rel:
                         if not key in relvalues:
@@ -146,7 +162,7 @@ class BoardLabel(QtGui.QLabel):
                 scale = absvalues.get(
                     'scale', 1 + relvalues.get('scale', 0)
                 )
-                img = absvalues.get('img', imgs[self.game.board[ir, ic]])
+                img = absvalues.get('img', imgs[self.board[ir, ic]])
                 
                 # Inefficient.
                 img = img.scaledToHeight(boxsize * scale, s_mode)
@@ -180,22 +196,23 @@ class BoardLabel(QtGui.QLabel):
     def get_coord(self, x, y):
         h = self.height()
         w = self.width()
-        boxsize = min((h / self.game.board.rows, w / self.game.board.cols))
+        boxsize = min((h / self.board.rows, w / self.board.cols))
         return y / boxsize, x / boxsize
     
     def mousePressEvent(self, event):
         if not self.user_control:
             return
         row, col = self.get_coord(event.x(), event.y())
-        if row >= self.game.board.rows or col >= self.game.board.cols:
+        if row >= self.board.rows or col >= self.board.cols:
             return
-        if self.picked is None and self.game.board[row, col] == self.player.id_:
+        if self.picked is None and self.board[row, col] == self.player.id_:
             self.pick(row, col)
         elif self.picked:
+            self.parent().statusBar().clearMessage()
             try:
                 self.player.turn(self.picked, (row, col))
             except thromolusng.InvalidTurn:
-                pass
+                self.parent().statusBar().showMessage("Invalid Turn")
             finally:
                 self.depick()
                 if self.mmmodifier is not None:
@@ -220,7 +237,7 @@ class BoardLabel(QtGui.QLabel):
             return
         
         row, col = self.get_coord(event.x(), event.y())
-        if row >= self.game.board.rows or col >= self.game.board.cols:
+        if row >= self.board.rows or col >= self.board.cols:
             return
         if self.picked is not None:
             if self.mmmodifier is not None:
@@ -228,7 +245,7 @@ class BoardLabel(QtGui.QLabel):
                     return
                 self.del_modifier(*self.mmmodifier)
                 self.mmmodifier = None
-            if not self.game.board[row, col]:
+            if not self.board[row, col]:
                 m = (
                     # if
                     lambda x: x == 0,
@@ -250,7 +267,7 @@ class BoardLabel(QtGui.QLabel):
     
     @property
     def user_control(self):
-        return (self.player == self.game.curplayer)
+        return (self.player.hascontrol)
 
 
 if __name__ == '__main__':
@@ -259,11 +276,24 @@ if __name__ == '__main__':
     g = thromolusng.Game(thromolusng.Board(7, 7))
     g.add_player(thromolusng.Player())
     g.add_player(thromolusng.Player())
-    g.random_beginner()
+    b = g.random_beginner()
+    o = g.other_player(b)
     g.start()
     
     app = QtGui.QApplication(sys.argv)
-    main = BoardLabel(1, g, True)
+    main = BoardLabel(b, o)
     main.show()
-
+    
+    g = thromolusng.Game(thromolusng.Board(7, 7))
+    g.add_player(thromolusng.Player())
+    g.add_player(thromolusng.Player())
+    b = g.random_beginner()
+    o = g.other_player(b)
+    g.start()
+    
+    a = BoardLabel(b)
+    b = BoardLabel(o)
+    #a.show()
+    #b.show()
+    
     app.exec_()

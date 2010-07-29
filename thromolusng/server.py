@@ -25,6 +25,22 @@ import asynchia.maps
 import thromolusng.packages
 import thromolusng.crypto
 
+STURN_STRUCT = struct.Struct('LBBBBB')
+YTURN_STRUCT = struct.Struct('LB')
+
+class ServerPlayer(thromolusng.Player):
+    def __init__(self, session):
+        thromolusng.Player.__init__(self)
+        
+        self.session = session
+    
+    def show_turn(self, player, origin, target):
+        self.session.show_turn(player, origin, target)
+    
+    def your_turn(self):
+        self.session.your_turn(self)
+
+
 class FixedSizeStringCollector(asynchia.ee.CollectorQueue):
     def __init__(self, onclose=None):
         asynchia.ee.CollectorQueue.__init__(
@@ -116,12 +132,31 @@ class PackageCollector(asynchia.ee.CollectorQueue):
 
 
 class Session(object):
-    def __init__(self, server_data):
+    def __init__(self, server_data, connection):
         self.players = {}
         self.server_data = server_data
+        self.connection = connection
     
-    def join_game(self, id_):
+    def join_game(self, pkg):
+        id_ = pkg.value[0]
         self.players[id_] = self.server_data.join_game(id_)
+    
+    def turn(self, pkg):
+        id_ = pkg.collected[0].value[0]
+        origin = pkg.collected[1].value
+        target = pkg.collected[2].value
+        
+        self.players[id_].turn(origin, target)
+    
+    def show_turn(self, player, origin, target):
+        self.connection.send_str(
+            thromolusng.packages.make_STURN(player, origin, target)
+        )
+    
+    def your_turn(self, player):
+        self.connection.send_str(
+            thromolusng.packages.make_YTURN(player)
+        )
 
 
 class Connection(asynchia.ee.Handler):
@@ -129,11 +164,13 @@ class Connection(asynchia.ee.Handler):
                  buffer_size=9046):
         self.server = server
         
+        self.session = Session(server)
         self.loggedin = False
         self.expected_response = None
         
         self.package_dispatcher = {
-            thromolusng.packages.LIN_GCHALLENGE: self.lin_challenge
+            thromolusng.packages.JOING: self.session.join_game,
+            thromolusng.packages.TURN: self.session.turn,
         }
             
         
@@ -146,6 +183,18 @@ class Connection(asynchia.ee.Handler):
                                          self.packet_received)
             )
         )
+    
+    def list_games(self, pkg):
+        header = asynchia.ee.StringInput(struct.pack(
+            "!BL", thromolusng.packages.GAMEL, len(self.server.games)
+        ))
+        
+        # Not used for now.
+        room = pkg.value[0]
+        
+        for key in self.server.games.iterkeys():
+            pass
+        
     
     def lin_challenge(self, pkg):
         pass
@@ -219,7 +268,9 @@ TYPES = {
     thromolusng.packages.MSG: MessageCollector,
     thromolusng.packages.LOUT: None,
     thromolusng.packages.LIN_GCHALLENGE: FixedSizeStringCollector,
-    thromolusng.packages.LISTG: None,
+    thromolusng.packages.LISTG: (
+        lambda: asynchia.ee.StructCollector(struct.Struct('!L'))
+    ),
     thromolusng.packages.GETROOMS: None,
     thromolusng.packages.GOPEN: None,
     thromolusng.packages.SUBSCHAN: (
