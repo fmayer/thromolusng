@@ -14,49 +14,70 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import itertools
+from asynchia.dsl import s, LFLSE, lb
+from asynchia.ee import KeepingCollectorQueue, FactoryCollector
+
+class Dispatcher(KeepingCollectorQueue):
+    def __init__(self, header, dispatch_table, onclose=None):
+        KeepingCollectorQueue.__init__(self,
+                                       [header(onclose=self.header_complete)],
+                                        onclose
+                                        )
+        self.dispatch_table = dispatch_table
+        
+        self.invalid = False
+    
+    def header_complete(self, header):
+        try:
+            self.add_collector(self.dispatch_table[header.value])
+        except IndexError:
+            self.invalid = True
 
 
-# Do not change order of symbols, less their values are changed,
-# making them incompatible with prior versions. Append any new
-# symbols on the bottom, stating the version they were introduced
-# in. 256 is reserved in case package types run out.
-enum = xrange(256)
+_POS = lambda: s.B() + s.B()
+_GAME = lambda: s.L()
+_CHANNEL = lambda: s.L()
 
-# Do turn in a game. B[Game-Id]B[Origin-x]B[Origin-y]B[Target-x]B[Target-y]
-TURN = enum.next() # dispatched
-MSG = enum.next() # dispatched
-LIN_GCHALLENGE = enum.next() # dispatched
-LIN_RESPONSE = enum.next()
-LOUT = enum.next() # dispatched
-INVALID = enum.next()
-OPENG = enum.next() # dispatched
-GOPEN = enum.next() # only sent by server
-LISTG = enum.next() # dispatched
-GDETAIL = enum.next() # dispatched
-GETCHAN = enum.next()
-SUBSCHAN = enum.next() # dispatched
-UNSUBCHAN = enum.next() # dispatched
-CHANOFF = enum.next() # only sent by server
-GETROOMS = enum.next() # dispatched
-JOING = enum.next() # dispatched
-INTERNALERROR = enum.next() # dispatched
-# Do turn in a game. L[Game-Id]B[Player-id]B[Origin-x]B[Origin-y]B[Target-x]B[Target-y]
-STURN = enum.next()
+enum = iter(xrange(256))
+
+INTERNALERROR = enum.next()
+
+MKGAME = enum.next()
+DOTURN = enum.next()
+LISTGAMES = enum.next()
+JOING = enum.next()
+
+TSERVER = {
+    MKGAME: s.B() + LFLSE(0),
+    DOTURN: _GAME() + _POS() + _POS(),
+    LISTGAMES: s.L(),
+    JOING: _GAME(),
+}
+
+START = enum.next()
 YTURN = enum.next()
-GAMEL = enum.next()
+GAMES = enum.next()
+JOINEDG = enum.next()
+STURN = enum.next()
 
-STURN_STRUCT = struct.Struct('!LBBBBB')
-YTURN_STRUCT = struct.Struct('!LB')
+TCLIENT = {
+    START: _GAME(),
+    YTURN: _GAME(),
+    GAMES: _GAME() + lb(-1) * (_GAME() + s.B() + LFLSE(-1)),
+    JOINEDG: _GAME(),
+    STURN: _GAME() + _POS() + _POS(),
+}
 
-def make_STURN(player, origin, target):
-    return STURN_STRUCT.pack(
-        player.game.id_, player.id_, origin[0], origin[1],
-        target[0], target[1]
-    )
+
+def c_pack(enum, *args):
+    return s.B().produce(enum) + TSERVER[enum].produce(*args)
 
 
-def make_YTURN(player, origin, target):
-    return YTURN_STRUCT.pack(
-        player.game.id_, player.id_
-    )
+def s_pack(enum, *args):
+    return s.B().produce(enum) + TCLIENT[enum].produce(*args)
+
+
+print s_pack(GAMES,
+    [1, [[1, 2, 'ab']]]
+)
+    
